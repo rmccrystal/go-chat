@@ -2,6 +2,7 @@ package main
 
 import (
 	"./chat"
+	"./logger"
 	"bufio"
 	"fmt"
 	"net"
@@ -18,13 +19,13 @@ func main() {
 
 	// Check for errors
 	if err != nil {
-		fmt.Printf("Error creating listener: %s\n", err.Error())
+		logger.Errorf("Error creating listener: %s\n", err.Error())
 		return
 	}
 
 	// Close the listener when the server stops0.
 	defer ln.Close()
-	fmt.Printf("go-chat server listening on port %d\n", ServerPort)
+	logger.Logf("go-chat server listening on port %d\n", ServerPort)
 
 	// Run loop that listens for connections
 	listenerLoop(ln)
@@ -36,7 +37,7 @@ func listenerLoop(ln net.Listener) {
 		conn, err := ln.Accept()
 
 		if err != nil {
-			fmt.Printf("error accepting connection from %s\n", conn.RemoteAddr().String())
+			logger.Errorf("error accepting connection from %s\n", conn.RemoteAddr().String())
 		}
 
 		// Create a new goroutine to handle the connection
@@ -48,7 +49,7 @@ func handleConnection(conn net.Conn) {
 	// Automatically close the connection when we're done with it
 	defer conn.Close()
 
-	fmt.Printf("Handling connection from %s\n", conn.RemoteAddr().String())
+	logger.Logf("New connection from %s\n", conn.RemoteAddr().String())
 
 	defer chat.HandleEndConnection(conn)
 

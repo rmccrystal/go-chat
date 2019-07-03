@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"../logger"
 	"bufio"
 	"fmt"
 	"net"
@@ -26,15 +27,14 @@ func HandleNewConnection(conn net.Conn) error {
 }
 
 func HandleEndConnection(conn net.Conn) {
-	// usersMutex.Lock and Unlock are for thread safety
-	usersMutex.Lock()
-
 	// The exclude value is user{} to specify we don't want to exclude anyone
 	err := broadcast(fmt.Sprintf("%s left the chat\n", users[conn].username), user{})
 	if err != nil {
 		fmt.Println(err)
 	}
 
+	// usersMutex.Lock and Unlock are for thread safety
+	usersMutex.Lock()
 	delete(users, conn)
 	usersMutex.Unlock()
 }
@@ -46,11 +46,15 @@ func HandleMessage(conn net.Conn, message string) error {
 	}
 
 	// Thread safety
+	// Get the data that should be sent to the broadcast function while the mutex is locked
 	usersMutex.Lock()
-	defer usersMutex.Unlock()
+	broadcastMsg := fmt.Sprintf("%s: %s", users[conn].username, message)
+	excludeUser := users[conn]
+	usersMutex.Unlock()
+	//
 
 	// Broadcast message to everyone except the sender
-	err := broadcast(fmt.Sprintf("%s: %s", users[conn].username, message), users[conn])
+	err := broadcast(broadcastMsg, excludeUser)
 	if err != nil {
 		return err
 	}
@@ -59,7 +63,10 @@ func HandleMessage(conn net.Conn, message string) error {
 
 // If exclude is not nil, the message will not be sent to that specific user
 func broadcast(msg string, exclude user) error {
-	// Thread safety
+	// Log the message
+	logger.LogPrefixf(msg, "CHAT")
+
+	// thread safety
 	usersMutex.Lock()
 	defer usersMutex.Unlock()
 
@@ -69,13 +76,12 @@ func broadcast(msg string, exclude user) error {
 			continue
 		}
 
-		// Write message
 		_, err := conn.Write([]byte(msg))
+
 		if err != nil {
 			return err
 		}
 	}
-
 	// No errors
 	return nil
 }
