@@ -8,6 +8,14 @@ import (
 	"net"
 )
 
+/*
+FIXME
+Current issues: when closing clients it prints an error message
+If you connect via putty for some reason it allows you to have empty usernames
+TODO
+Change raw sockets to telnet OR create a strucutured data transfer system
+*/
+
 // Config
 const (
 	ServerPort int = 8080
