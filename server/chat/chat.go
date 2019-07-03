@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 )
 
 const (
@@ -17,6 +18,7 @@ type user struct {
 	admin    bool
 }
 
+var usersMutex = sync.Mutex{}
 var users = make(map[net.Conn]user)
 
 func HandleNewConnection(conn net.Conn) error {
@@ -24,12 +26,17 @@ func HandleNewConnection(conn net.Conn) error {
 }
 
 func HandleEndConnection(conn net.Conn) {
+	// usersMutex.Lock and Unlock are for thread safety
+	usersMutex.Lock()
+
 	// The exclude value is user{} to specify we don't want to exclude anyone
 	err := broadcast(fmt.Sprintf("%s left the chat\n", users[conn].username), user{})
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	delete(users, conn)
+	usersMutex.Unlock()
 }
 
 func HandleMessage(conn net.Conn, message string) error {
@@ -37,6 +44,10 @@ func HandleMessage(conn net.Conn, message string) error {
 	if len(message) <= 1 {
 		return nil
 	}
+
+	// Thread safety
+	usersMutex.Lock()
+	defer usersMutex.Unlock()
 
 	// Broadcast message to everyone except the sender
 	err := broadcast(fmt.Sprintf("%s: %s", users[conn].username, message), users[conn])
@@ -48,6 +59,10 @@ func HandleMessage(conn net.Conn, message string) error {
 
 // If exclude is not nil, the message will not be sent to that specific user
 func broadcast(msg string, exclude user) error {
+	// Thread safety
+	usersMutex.Lock()
+	defer usersMutex.Unlock()
+
 	for conn, usr := range users {
 		// If we hit the user we need to exclude then continue the loop without sending data to them
 		if usr == exclude {
@@ -97,6 +112,9 @@ func getUsername(conn net.Conn) error {
 			continue
 		}
 
+		// Lock users mutex for thread safety
+		usersMutex.Lock()
+
 		// Check if the username is already taken
 		isUsernameTaken := false // true if the username is already taken
 		for _, user := range users {
@@ -109,11 +127,16 @@ func getUsername(conn net.Conn) error {
 		}
 		// If the username is taken continue with the for loop
 		if isUsernameTaken {
+			// If the user needs to select another username, unlock the mutex
+			usersMutex.Unlock()
 			continue
 		}
 
 		// Add new user
 		users[conn] = user{username: username, admin: false}
+
+		// Now that we've added the user to the list, we can unlock the mutex
+		usersMutex.Unlock()
 
 		// Tell everyone someone joined
 		// The user{} in the second parameter of broadcast() specifies that we don't want to exclude anyone from this message
