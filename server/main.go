@@ -68,7 +68,6 @@ func handleConnection(conn net.Conn) {
 
 		err = chat.HandleMessage(conn, data)
 		if err != nil {
-			fmt.Println(err)
 			return
 		}
 	}

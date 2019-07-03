@@ -33,6 +33,11 @@ func HandleEndConnection(conn net.Conn) {
 }
 
 func HandleMessage(conn net.Conn, message string) error {
+	// If the message is too short, don't do anything
+	if len(message) <= 1 {
+		return nil
+	}
+
 	// Broadcast message to everyone except the sender
 	err := broadcast(fmt.Sprintf("%s: %s", users[conn].username, message), users[conn])
 	if err != nil {
